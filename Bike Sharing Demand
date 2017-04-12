@@ -1,0 +1,239 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sn
+from datetime import datetime
+from scipy import stats
+import calendar 
+get_ipython().magic('matplotlib inline')
+import math
+
+train=pd.read_csv('train.csv')
+test=pd.read_csv('test.csv')
+print(train.head())
+print(test.head())
+
+
+train['date']=train.datetime.apply(lambda x: x.split()[0])
+train['hours']=train.datetime.apply(lambda x: x.split()[1].split(':')[0])
+train['weekday']=train.date.apply(lambda x: calendar.day_name[datetime.strptime(x,'%Y-%m-%d').weekday()])
+train['month']=train.date.apply(lambda x:calendar.month_name[datetime.strptime(x,'%Y-%m-%d').month])
+
+    
+#train['season']=train.season.replace({1:'Spring',2:'Summer',3:'Fall',4:'Winter'})
+
+train=train.drop(['datetime'],axis=1)
+
+print(train['holiday'].value_counts())
+
+train.describe()
+
+print(train['count'].groupby(train['hours']).mean().sort_values(ascending=False))
+print(train['count'].groupby(train['season']).mean().sort_values(ascending=False))
+print(train['count'].groupby(train['month']).mean().sort_values(ascending=False))
+print(train['count'].groupby(train['holiday']).mean().sort_values(ascending=False))
+
+
+print(train['registered'].groupby(train['hours']).mean().sort_values(ascending=False))
+print(train['registered'].groupby(train['season']).mean().sort_values(ascending=False))
+print(train['registered'].groupby(train['month']).mean().sort_values(ascending=False))
+print(train['registered'].groupby(train['holiday']).mean().sort_values(ascending=False))
+
+
+fig,(ax1,ax2)=plt.subplots(nrows=2)
+fig.set_size_inches([10,10])
+sn.barplot(data=train,x='season',y='count',ax=ax1)
+ax1.set(xlabel='season',ylabel='count',title='count for each season')
+
+sn.barplot(data=train, x='season',y='registered',ax=ax2)
+ax2.set(xlabel='season',ylabel='registered',title='registered for each season')
+
+plt.show()
+
+
+
+fig,(ax1,ax2)=plt.subplots(nrows=2)
+fig.set_size_inches([20,10])
+
+sn.barplot(data=train, x='hours',y='count',ax=ax1)
+ax1.set(xlabel='hours',ylabel='count',title='count per hour')
+sn.barplot(data=train, x='hours',y='count',hue='workingday',ax=ax2)
+ax2.set(xlabel='hours',ylabel='count',title='count per hour per workingday')
+
+plt.show()
+
+
+fig, ax=plt.subplots()
+fig.set_size_inches(20,10)
+sn.barplot(data=train,x='month',y='count',ax=ax)
+ax.set(xlabel='month',ylabel='count',title='count for each month')
+plt.show()
+
+
+
+print(train['count'].groupby(pd.qcut(train['humidity'],5)).mean())
+
+a=[]
+
+
+for i in range(0,len(train)):
+    if train['holiday'][i]==1:
+        a.append(train['weekday'][i])
+    else:
+        v=5
+        
+#a=np.array(a)[np.newaxis].T
+#a=np.array(a).reshape(1,-1).T
+a=np.array([a]).T
+print(a)
+print(len(a))
+print(a.shape[1])
+print(a[1][0])
+
+
+fig, (ax1,ax2)=plt.subplots(nrows=2)
+fig.set_size_inches(15,15)
+
+train['newhours']=train.hours.replace({'00':'12Am-4Am','01':'12Am-4Am','02':'12Am-4Am','03':'12Am-4Am',
+                                   '04':'5Am-8Am','05':'5Am-8Am','06':'5Am-8Am','07':'5Am-8Am',
+                                   '08':'9Am-12Am','09':'9Am-12Am','10':'9Am-12Pm','11':'9Am-12Pm',
+                                   '12':'1Pm-4Pm','13':'1Pm-4Pm','14':'1Pm-4Pm','15':'1Pm-4Pm',
+                                   '16':'5Pm-8Pm','17':'5Pm-8Pm','18':'5Pm-8Pm','19':'5Pm-8Pm',
+                                   '20':'9Pm-12Am','21':'9Pm-12Am','22':'9Pm-12Am','23':'9Pm-12Am'})
+
+sn.barplot(data=train,x='newhours',y='count',ax=ax1)
+ax1.set(xlabel='hours',ylabel='counts',title='hours per count')
+
+dfMean1=train['casual'].groupby(train['newhours']).mean().reset_index()
+dfMean2=train['registered'].groupby(train['newhours']).mean().reset_index()
+dfMean3=train['casual'].groupby(train['newhours']).sum().reset_index()
+dfMean4=train['registered'].groupby(train['newhours']).sum().reset_index()
+bike_week= dfMean1.merge(dfMean2)
+bike_week1= dfMean3.merge(dfMean4)
+
+bike_week['casual_prct']= bike_week['casual']*100/(bike_week['registered']+bike_week['casual'])
+bike_week['registered_prct']= bike_week['registered']*100/(bike_week['registered']+bike_week['casual']) 
+bike_week['total_prct']=bike_week['registered_prct']+bike_week['casual_prct']
+
+bike_week1['casual_prct']= bike_week1['casual']*100/(bike_week1['registered']+bike_week1['casual'])
+bike_week1['registered_prct']= bike_week1['registered']*100/(bike_week1['registered']+bike_week1['casual']) 
+bike_week1['total_prct']=bike_week1['registered_prct']+bike_week1['casual_prct']
+
+
+sn.barplot(x = "newhours", y = "total_prct", data = bike_week1, color = "#008000",ax=ax2)
+sn.barplot(x = "newhours", y = "casual_prct", data = bike_week1, color = "#111199",ax=ax2)
+ax2.set(xlabel='Hour', ylabel='Avearage Count percentage',title="Percentage Of Casual User By Time Interval")
+green=plt.Rectangle((0,0),1,1,fc="#008000")
+blue= plt.Rectangle((0,0),1,1,fc='#111199')
+legend= plt.legend([green, blue], ['Registered Users', 'Casual Users'], loc=9, ncol = 2,
+                  fancybox=True, shadow=True, prop={'size':16}, borderpad=-2)
+legend.draw_frame(False)
+plt.show()
+
+
+
+from sklearn import linear_model
+from sklearn import svm
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.learning_curve import learning_curve
+from sklearn.grid_search import GridSearchCV
+from sklearn.metrics import explained_variance_score
+from sklearn.model_selection import cross_val_score
+from sklearn import preprocessing, cross_validation, svm
+from sklearn.linear_model import LinearRegression
+from sklearn import cross_validation, grid_search, linear_model, metrics, pipeline, preprocessing
+
+#df=train['']
+
+#x=np.array(train.drop())
+
+
+train.isnull().sum()
+
+
+print(train.head())
+
+
+test['date']=test.datetime.apply(lambda x: x.split()[0])
+test['hours']=test.datetime.apply(lambda x: x.split()[1].split(':')[0])
+test['weekday']=test.date.apply(lambda x: calendar.day_name[datetime.strptime(x,'%Y-%m-%d').weekday()])
+test['month']=test.date.apply(lambda x:calendar.month_name[datetime.strptime(x,'%Y-%m-%d').month])
+train['weekend']=train['weekday']
+for i in range(len(train)):
+    if train.loc[i,'weekday']<=5:
+        train.loc[i,'weekend']=0
+    else:
+        train.loc[i,'weekend']=1
+        
+print(train['weekend'].head())
+#test['season']=test.season.replace({1:'Spring',2:'Summer',3:'Fall',4:'Winter'})
+
+
+test=test.drop(['datetime','atemp'],axis=1)
+
+print(test.head())
+
+train['year']=train.date.apply(lambda x:x.split()[0].split('-')[0])
+
+monthaggregated=pd.DataFrame(train.groupby(['season','year'])['count'].mean()).reset_index()
+monthaggregated_2011=monthaggregated.iloc[[0,2,4,6],:]
+monthaggregated_2012=monthaggregated.iloc[[1,3,5,7],:]
+
+print(monthaggregated_2011)
+print(monthaggregated_2012)
+fig,(ax1,ax2)=plt.subplots(nrows=2)
+fig.set_size_inches(20,15)
+sn.barplot(data=monthaggregated_2011,x='season',y='count',ax=ax1)
+ax1.set(xlabel='season',ylabel='count',title='2011')
+ax1.set(ylim=(0, 300))
+sn.barplot(data=monthaggregated_2012,x='season',y='count',ax=ax2)
+ax2.set(xlabel='season',ylabel='count',title='2012')
+ax2.set(ylim=(0, 300))
+plt.show()
+
+corr_matt=train.corr()
+mask=np.array(corr_matt)
+mask[np.tril_indices_from(mask)] = False
+fig,ax=plt.subplots()
+fig.set_size_inches(15,15)
+sn.heatmap(corr_matt,mask=mask,vmax=0.8, square=True,annot=True)
+plt.show()
+
+def rmsle(y, y_):
+    log1 = np.nan_to_num(np.array([np.log(v + 1) for v in y]))
+    log2 = np.nan_to_num(np.array([np.log(v + 1) for v in y_]))
+    calc = (log1 - log2) ** 2
+    return np.sqrt(np.mean(calc))
+
+print(train.head())
+print(test.head())
+
+train['weekday']=train.weekday.replace({'Sunday':1,'Monday':2,'Tuesday':3,'Wednesday':4,'Thursday':5,'Friday':6,'Saturday':7})
+test['weekday']=test.weekday.replace({'Sunday':1,'Monday':2,'Tuesday':3,'Wednesday':4,'Thursday':5,'Friday':6,'Saturday':7})
+
+print(train.head())
+print(test.head())
+
+train['month']=train.month.replace({'January':1,'February':2,'May':3,'April':4,'March':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12})
+test['month']=test.month.replace({'January':1,'February':2,'May':3,'April':4,'March':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12})
+train['new_windspeed']=train.windspeed.apply(np.sqrt)
+test['new_windspeed']=test.windspeed.apply(np.sqrt)
+
+print(train.head())
+print(test.head())
+
+X=np.array(train[['season','weather','temp','weekday','month','humidity','new_windspeed','hours','year','atemp']])
+y=np.array(train['count'])
+X=preprocessing.scale(X)
+
+X_train,X_test,y_train,y_test=cross_validation.train_test_split(X,y,test_size=0.2)
+
+clf=LinearRegression()
+clf.fit(X_train,y_train)
+accuracy=clf.score(X_test,y_test)
+print(accuracy)
+
+clf=svm.SVR()
+clf.fit(X_train,y_train)
+accuracy=clf.score(X_test,y_test)
+print(accuracy)
